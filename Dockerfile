@@ -4,6 +4,7 @@
 # and paste that key into the dashboard's prompt. (space/Dockerfile is the
 # public demo image, DEMO_MODE=1.)
 FROM node:22-alpine
+LABEL io.modelcontextprotocol.server.name="io.github.willykeenan/tanpin"
 WORKDIR /app
 COPY package.json ./
 COPY bin ./bin

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.willykeenan/tanpin",
+  "title": "Tanpin",
+  "description": "Item-by-item inventory that reorders itself: per-SKU forecasts, purchase orders and ETAs.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/willykeenan/tanpin",
+    "source": "github"
+  },
+  "websiteUrl": "https://huggingface.co/spaces/willykeenan/tanpin",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/willykeenan/tanpin:0.1.0",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "-v",
+          "value": "{data_volume}:/app/data",
+          "variables": {
+            "data_volume": {
+              "description": "Docker volume or host folder for inventory data",
+              "default": "tanpin-data",
+              "isRequired": true
+            }
+          }
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "node"
+        },
+        {
+          "type": "positional",
+          "value": "bin/tanpin"
+        },
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}
