@@ -1,0 +1,43 @@
+# Tanpin — item-by-item inventory
+
+> Self-hosted inventory management API with demand forecasting, automatic reordering, supplier auto-emailing, and delivery ETAs. Built on the tanpin kanri (単品管理) method popularized by Japanese convenience retail. Zero dependencies, runs anywhere Node 22+ runs.
+
+You are reading the machine-readable guide. Everything below works with plain HTTP + JSON.
+
+## The 30-second integration
+
+- Base URL: the origin serving this file (e.g. `http://localhost:4173`).
+- Auth: `Authorization: Bearer <key>` or `X-API-Key: <key>`. Direct requests on the server's own machine to localhost need no key by default; proxied, containerized or cross-origin requests do.
+- Products are addressable by SKU everywhere — you never need internal ids.
+- Errors: `{"error": "<message>", "code": "<machine_code>"}` with proper HTTP status.
+- Full spec: [/openapi.json](/openapi.json). Full endpoint reference: [/llms-full.txt](/llms-full.txt).
+
+## The five calls that matter
+
+1. `GET /api/state` — the whole world in one call: KPIs, every product with live forecast/reorder math, open POs with ETAs, suppliers, activity log.
+2. `POST /api/sales` `{"sku": "COFFEE-HOT", "qty": 2}` — record a sale; stock and forecasts update instantly. Supports `Idempotency-Key` for safe retries; `/api/sales/bulk` for batch POS sync.
+3. `GET /api/recommendations` — exactly what to order right now, grouped by supplier, with quantities, costs, and minimum-order holds. This is the auto-ordering engine as a dry run.
+4. `POST /api/purchase-orders` `{"supplierId": "FreshFoods Distribution", "fromRecommendations": true, "autoSend": true}` — turn recommendations into a real, emailed order in one call. The response includes the delivery ETA.
+5. `POST /api/hypotheses` `{"note": "heatwave next week", "multiplier": 1.4, "category": "beverage"}` — tell it the future; forecasts and automatic orders adjust immediately.
+
+## For MCP clients
+
+A bundled MCP server exposes all of this as native tools:
+
+    claude mcp add tanpin -- node /path/to/tanpin/src/mcp.js
+
+Env: `INVENTORY_URL` (default http://localhost:4173), `INVENTORY_API_KEY` (if remote). Tools include get_overview, get_reorder_recommendations, create_purchase_order, record_sale, add_demand_hypothesis, run_management_cycle.
+
+## Webhooks (push instead of poll)
+
+`POST /api/webhooks` `{"url": "https://your-system/hook"}` subscribes to events: sale.recorded, stock.low, po.created, po.sent, po.received, product.delist_flagged, cycle.completed. Deliveries are JSON POSTs signed with `X-Inventory-Signature: sha256=HMAC-SHA256(secret, raw_body)`.
+
+## What the daemon does without you
+
+Every N minutes (default 15) it re-forecasts every SKU (recency-weighted, day-of-week aware, trend aware, hypothesis aware), recomputes safety stock / reorder points / EOQ, reclassifies ABC, raises draft purchase orders for anything below its reorder point (JIT-capped quantities, grouped by supplier, respecting pack sizes / MOQs / order cut-offs / delivery windows), optionally emails them to suppliers, computes delivery ETAs, flags dead stock to delist, and emails the manager a digest. `POST /api/daemon/run` triggers a cycle on demand.
+
+## Docs
+
+- [/openapi.json](/openapi.json): OpenAPI 3.1 spec, the full contract
+- [/llms-full.txt](/llms-full.txt): complete endpoint reference with request/response examples
+- [GET /api](/api): self-describing endpoint index

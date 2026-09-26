@@ -1,0 +1,18 @@
+services:
+  tanpin:
+    build: .
+    ports:
+      - "4173:4173"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "4173"
+      TANPIN_CORS_ORIGINS: "http://localhost:4173,http://127.0.0.1:4173"
+      # Requests arrive through Docker's port mapping, so none of them are
+      # "local": the dashboard and every API client need a key. Put
+      # TANPIN_ADMIN_KEY=<long random string> in .env next to this file and
+      # paste it into the dashboard's key prompt.
+      TANPIN_ADMIN_KEY: "${TANPIN_ADMIN_KEY:?Set TANPIN_ADMIN_KEY in .env (e.g. openssl rand -hex 24)}"
+    volumes:
+      - tanpin-data:/app/data
+volumes:
+  tanpin-data: {}

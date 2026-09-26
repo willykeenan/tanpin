@@ -1,0 +1,19 @@
+{
+  "name": "tanpin",
+  "version": "0.1.0",
+  "description": "Open-source item-by-item inventory that reorders itself: per-SKU demand forecasts, automatic purchase orders, supplier email and delivery ETAs, with a REST API, an MCP server and a dashboard. Zero dependencies.",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": { "node": ">=22" },
+  "bin": { "tanpin": "bin/tanpin" },
+  "main": "src/server.js",
+  "files": ["bin", "src", "public", "examples", "docs", "README.md", "LICENSE"],
+  "scripts": {
+    "start": "node bin/tanpin serve",
+    "daemon": "node bin/tanpin daemon",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "keywords": ["inventory", "reorder-point", "safety-stock", "eoq", "abc-analysis", "demand-forecasting", "tanpin-kanri", "self-hosted", "mcp", "ai-agents"],
+  "author": "KE Studios",
+  "dependencies": {}
+}

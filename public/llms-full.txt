@@ -1,0 +1,120 @@
+# Tanpin — Complete API Reference
+
+Self-hosted item-by-item inventory built on the tanpin kanri (単品管理) method popularized by Japanese convenience retail. Base URL = the origin serving this file. All bodies are JSON unless noted. Timestamps are Unix milliseconds. The authoritative machine contract is /openapi.json; this file is the same information optimized for LLM context windows.
+
+## Authentication
+
+Send `Authorization: Bearer <key>` or `X-API-Key: <key>`.
+- Direct local requests need no key by default (that's how the bundled dashboard works on the server's machine): loopback peer, loopback Host, and no Forwarded / X-Forwarded-* / X-Real-IP / Via header. Anything through a reverse proxy, a container port mapping or another browser origin needs a key.
+- `TANPIN_REQUIRE_API_KEY=1` (env) forces keys everywhere; `TANPIN_ADMIN_KEY=<secret>` (env) defines a master key.
+- Secrets (webhook signing secrets, provider credentials) are never returned by reads — only `hasSecret` / `hasWebhookSecret` flags.
+- Create keys: `POST /api/keys {"name":"acme-pos"}` → response contains `key` ONCE (stored hashed). Revoke: `DELETE /api/keys/{id}`.
+
+Errors: `{"error":"<human message>","code":"<machine_code>"}` — codes include `missing_api_key`, `invalid_api_key`, `product_not_found`, `duplicate_sku`, `invalid_request`, `nothing_to_order`, `already_received`, `unknown_endpoint`.
+
+Idempotency: send `Idempotency-Key: <any-unique-string>` on POST /api/sales, /api/sales/bulk, /api/purchase-orders. Retries within 24h replay the original response (header `Idempotency-Replayed: true`).
+
+Versioning: `/api/...` and `/api/v1/...` are equivalent.
+
+## Discovery
+
+GET /api/health (no auth) → {ok, name, version, time, skus, daemonLastRun}
+GET /api → endpoint index (no auth)
+GET /api/state → everything: {version, settings, kpis:{skuCount, stockValue, retailValue, lowStock, deadStock, openPOs, incomingUnits}, products:[enriched], suppliers, purchaseOrders:[open, with etaLabel], allPurchaseOrders, hypotheses, daemonLog, outbox, apiKeys(masked), webhooks, webhookLog, webhookEvents, serverTime}
+
+## Products
+
+Product fields: id, sku, name, category, supplierId, unitCost, price, currentStock, leadTimeDays, packSize, minOrderQty — plus computed: avgDailyDemand, dailyForecast, dailyStdDev, safetyStock, reorderPoint, eoq, abcClass (A/B/C), delistFlagged (dead/slow/null), onOrder, stockPosition, belowReorder, daysOfSupply, forecast{...breakdown}.
+
+GET /api/products?low_stock=true&category=beverage → [Product]
+GET /api/products/{idOrSku} → Product        (SKU works everywhere an id does)
+POST /api/products {"sku","name",...} → 201 Product (409 duplicate_sku if SKU exists)
+PUT /api/products/{idOrSku} {partial fields} → Product
+DELETE /api/products/{idOrSku} → {removed:true}
+POST /api/products/bulk [{sku, name, supplierName?, ...}] → {created, updated, suppliersCreated, skipped, errors}
+  - Upserts by SKU. supplierName is matched to an existing supplier or one is created.
+
+## Stock
+
+POST /api/sales {"sku":"COFFEE-HOT","qty":2,"at":<optional ms>} → 201 {product}
+  - Decrements stock, re-forecasts, emits sale.recorded (+ stock.low on crossing the reorder point).
+POST /api/sales/bulk {"sales":[{sku,qty,at?}...]} (or bare array) → {recorded, failed, results}
+POST /api/adjust {"sku","delta":-3,"reason":"damaged"} → {product}   (delta may be negative; floors at 0)
+GET /api/movements?product=COFFEE-HOT&limit=100 → [{id, productId, sku, type: sale|receipt|adjustment, qty, at, ref?}] newest first
+
+## Ordering
+
+GET /api/recommendations → {recommendations:[{supplierId, supplierName, lines:[{sku,name,qty,unitCost}], total, minOrderValue, heldBelowMinimum}], notes, generatedAt}
+  - Dry run of the daemon's ordering pass: what to order right now and why it might be held.
+
+POST /api/purchase-orders → 201 PurchaseOrder
+  Body option A: {"supplierId":"<id or exact name>","lines":[{"sku":"X","qty":24}]}
+  Body option B: {"supplierId":"...","fromRecommendations":true}   ← order exactly what the engine recommends
+  Either may add "autoSend": true to mark sent + email the supplier immediately.
+  PurchaseOrder: {id, supplierId, supplierName, status: draft|sent|received|cancelled, lines, total, auto, orderedAt, eta, etaLabel, leadTimeDays}
+  ETA = order time + supplier lead time, snapped to the supplier's next delivery window, respecting the order cut-off hour.
+
+GET /api/purchase-orders?status=open|draft|sent|received|cancelled → [PurchaseOrder with etaLabel]
+GET /api/purchase-orders/{id} → PurchaseOrder
+POST /api/purchase-orders/{id}/send → marks sent + emails supplier (SMTP if configured, else .eml in outbox/)
+POST /api/purchase-orders/{id}/receive → stock in, receipt movements written (409 if already received/cancelled)
+POST /api/purchase-orders/{id}/cancel → 409 if already received
+
+## Suppliers
+
+Supplier: {id, name, email, leadTimeDays, deliveryWindows:[hours 0-23], cutoffHour, minOrderValue}
+GET /api/suppliers → [Supplier]
+POST /api/suppliers {"name":"FreshFoods","email":"orders@ff.com","leadTimeDays":1,"deliveryWindows":"8,13,19","cutoffHour":11,"minOrderValue":50} → 201
+PUT /api/suppliers/{id} · DELETE /api/suppliers/{id}
+
+## Forecasting (demand hypotheses)
+
+The forward-looking half of tanpin kanri: declare what's about to happen and the math adjusts.
+POST /api/hypotheses {"note":"heatwave","multiplier":1.4,"category":"beverage"} → applies ×1.4 to that category's forecasts for 7 days (override with startsAt/endsAt; scope to one product with "sku").
+GET /api/hypotheses · DELETE /api/hypotheses/{id}
+
+Forecast model per SKU: recency-weighted moving average of sales × day-of-week factor × trend factor × active hypothesis multipliers. Then:
+  safetyStock = z(serviceLevel) × demandStdDev × √leadTime
+  reorderPoint = forecast demand over the lead time (weekday × trend × hypotheses) + safetyStock
+  orderQty = clamp(targetDaysOfSupply×forecast − (onHand+onOrder), floor=max(EOQ, MOQ), cap=maxDaysOfSupply) rounded to packSize
+
+## Automation
+
+POST /api/daemon/run → run a cycle now → {at, trigger, recomputed, ordersCreated, orderLines, emailsSent, received, delistFlags, notes}
+GET /api/daemon/log → recent cycle summaries
+GET /api/settings · PUT /api/settings {partial} — keys: currency, serviceLevel (0-1), targetDaysOfSupply, maxDaysOfSupply, orderCost, holdingCostRate, autoManage, autoSend, autoReceive, autoEmailAlerts, daemonIntervalMinutes, notifyEmail, fromEmail, companyName, timezone (IANA store timezone, e.g. Asia/Tokyo)
+GET /api/outbox → emails the system sent (POs + digests)
+
+## Integration
+
+API keys:    GET /api/keys · POST /api/keys {"name"} (key shown once) · DELETE /api/keys/{id}
+Webhooks:    GET /api/webhooks → {webhooks, events, recentDeliveries}
+             POST /api/webhooks {"url":"https://...","events":["stock.low","po.created"]} → 201 (secret auto-generated if omitted)
+             POST /api/webhooks/{id}/test · DELETE /api/webhooks/{id}
+  Events: sale.recorded, stock.adjusted, stock.low, po.created, po.sent, po.received, po.cancelled, product.delist_flagged, cycle.completed
+  Delivery: POST {"id","event","at","data"} with headers X-Inventory-Event and X-Inventory-Signature: sha256=HMAC-SHA256(secret, raw_body)
+CSV:         GET /api/export/products.csv · GET /api/export/movements.csv
+             POST /api/import/products (JSON array or raw CSV with header sku,name,category,supplierName,unitCost,price,currentStock,leadTimeDays,packSize,minOrderQty)
+
+## MCP server (native tools for agents)
+
+Bundled at src/mcp.js — stdio JSON-RPC, zero dependencies:
+  claude mcp add tanpin -- node /path/to/tanpin/src/mcp.js
+Env: INVENTORY_URL (default http://localhost:4173), INVENTORY_API_KEY.
+Tools: get_overview, list_products, get_product, create_product, record_sale, adjust_stock, get_reorder_recommendations, create_purchase_order, list_purchase_orders, send_purchase_order, receive_purchase_order, list_suppliers, create_supplier, add_demand_hypothesis, run_management_cycle, get_movements.
+
+## Recipes
+
+End-of-day POS sync:
+  POST /api/sales/bulk with Idempotency-Key: pos-2026-07-02
+  {"sales":[{"sku":"COFFEE-HOT","qty":214},{"sku":"ONIGIRI-TUNA","qty":167}]}
+
+"Order everything we need, automatically":
+  PUT /api/settings {"autoManage":true,"autoSend":true}  → the daemon does the rest.
+
+Agent morning routine:
+  GET /api/state → summarize; GET /api/recommendations → for each supplier not heldBelowMinimum:
+  POST /api/purchase-orders {"supplierId":..., "fromRecommendations":true, "autoSend":true}
+
+React to a stockout risk in your own system:
+  POST /api/webhooks {"url":"https://you/hook","events":["stock.low"]} — then act on the signed POSTs.

@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+'use strict';
+// tanpin serve | daemon | mcp | seed
+const path = require('node:path');
+const cmd = process.argv[2] || 'serve';
+const src = path.join(__dirname, '..', 'src');
+const usage = [
+  'Usage: tanpin <serve|daemon|mcp|seed>',
+  '  serve   start the API + dashboard (PORT, HOST=127.0.0.1, TANPIN_DB env)',
+  '  daemon  run the auto-management loop (same data file as serve)',
+  '  mcp     run the MCP server over stdio',
+  '  seed    replace the data file with the demo store',
+  '',
+  'Data env: TANPIN_DATA_DIR (default ./data), TANPIN_DB, TANPIN_OUTBOX',
+  '',
+  'Security env: TANPIN_REQUIRE_API_KEY=1, TANPIN_ADMIN_KEY, TANPIN_CORS_ORIGINS,',
+  '  TANPIN_ALLOW_PRIVATE_WEBHOOKS=1, DEMO_MODE=1',
+].join('\n');
+if (cmd === '-h' || cmd === '--help' || cmd === 'help') { console.log(usage); process.exit(0); }
+const files = { serve: 'server.js', daemon: 'daemon.js', mcp: 'mcp.js', seed: 'seed.js' };
+if (!files[cmd]) { console.error(usage); process.exit(2); }
+process.argv.splice(2, 1);
+const mod = require(path.join(src, files[cmd]));
+// Each module guards its own start-up with `require.main === module`, which is
+// false when loaded from here — so start the requested entry point explicitly.
+// (`mcp` starts its stdio loop when required.)
+if (require.main === module) {
+  const fail = (e) => { console.error(e && e.message ? e.message : e); process.exit(1); };
+  try {
+    if (cmd === 'serve' && typeof mod.start === 'function') mod.start().catch(fail);
+    else if (cmd === 'daemon' && typeof mod.main === 'function') mod.main();
+    else if (cmd === 'seed' && typeof mod.main === 'function') Promise.resolve(mod.main()).catch(fail);
+  } catch (e) {
+    fail(e);
+  }
+}
