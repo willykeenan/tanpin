@@ -5,7 +5,7 @@ Node 22+, zero install. This is the 60-second path plus the first sale and first
 ## 1. Start the server
 
 ```bash
-npx tanpin serve
+npx github:willykeenan/tanpin serve
 ```
 
 From a clone:
@@ -114,7 +114,7 @@ The HTTP body uses `startsAt` / `endsAt` (unix ms). Omit them and the hypothesis
 In another terminal, with the server still running:
 
 ```bash
-INVENTORY_URL=http://localhost:4173 npx tanpin mcp
+INVENTORY_URL=http://localhost:4173 npx github:willykeenan/tanpin mcp
 ```
 
 Then add the server to Claude Code, Codex, or Cursor — snippets are in the root [README.md](../README.md) and [MCP.md](MCP.md). Call `get_overview` first.

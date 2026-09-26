@@ -38,7 +38,7 @@ ABC classification follows the same idea: a small set of A items drives most val
 Requires [Node.js 22](https://nodejs.org/) or newer.
 
 ```bash
-npx tanpin serve
+npx github:willykeenan/tanpin serve
 ```
 
 Open [http://localhost:4173](http://localhost:4173) and click **Load demo data**. That loads a convenience-store catalog, about 35 days of sales, live forecasts, and reorder recommendations.
@@ -112,7 +112,7 @@ Environment: `INVENTORY_URL` (default `http://localhost:4173`), `INVENTORY_API_K
 ### Claude Code
 
 ```bash
-claude mcp add tanpin --env INVENTORY_URL=http://localhost:4173 -- npx -y tanpin mcp
+claude mcp add tanpin --env INVENTORY_URL=http://localhost:4173 -- npx -y github:willykeenan/tanpin mcp
 ```
 
 Or a project `.mcp.json`:
@@ -122,7 +122,7 @@ Or a project `.mcp.json`:
   "mcpServers": {
     "tanpin": {
       "command": "npx",
-      "args": ["-y", "tanpin", "mcp"],
+      "args": ["-y", "github:willykeenan/tanpin", "mcp"],
       "env": {
         "INVENTORY_URL": "http://localhost:4173"
       }
@@ -140,7 +140,7 @@ In `~/.codex/config.toml` (or the project Codex config):
 ```toml
 [mcp_servers.tanpin]
 command = "npx"
-args = ["-y", "tanpin", "mcp"]
+args = ["-y", "github:willykeenan/tanpin", "mcp"]
 
 [mcp_servers.tanpin.env]
 INVENTORY_URL = "http://localhost:4173"
@@ -155,7 +155,7 @@ INVENTORY_URL = "http://localhost:4173"
   "mcpServers": {
     "tanpin": {
       "command": "npx",
-      "args": ["-y", "tanpin", "mcp"],
+      "args": ["-y", "github:willykeenan/tanpin", "mcp"],
       "env": {
         "INVENTORY_URL": "http://localhost:4173"
       }
