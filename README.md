@@ -242,3 +242,11 @@ npm test          # node --test --test-concurrency=1 test/
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). MIT license — [LICENSE](LICENSE).
 
+## Run with Docker
+
+The image is published at `ghcr.io/willykeenan/tanpin` for Apple silicon and Intel.
+
+```bash
+docker run -p 4173:4173 -e TANPIN_ADMIN_KEY=<long random string> -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin
+claude mcp add tanpin -- docker run -i --rm -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin node bin/tanpin mcp
+```
