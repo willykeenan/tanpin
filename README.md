@@ -2,6 +2,12 @@
 
 **Item-by-item inventory that reorders itself.** Per-SKU demand forecasts, automatic purchase orders, supplier email and delivery ETAs — with a REST API, an MCP server, a daemon, and a dashboard. Pure Node 22, zero runtime dependencies (`node:*` built-ins only).
 
+![Tanpin dashboard after an automatic cycle: stock value, open purchase orders and incoming deliveries with ETAs](docs/images/dashboard.png)
+
+<sub>Real screenshot of the demo; the data in it is invented sample data.</sub>
+
+<table><tr><td width="50%"><img src="docs/images/forecast.png" alt="Per-SKU forecast with weekday and trend factors, safety stock, reorder point and a manager hypothesis"><br><sub>Per-SKU forecast with weekday and trend factors, safety stock, reorder point and a manager hypothesis.</sub></td><td width="50%"><img src="docs/images/purchase-orders.png" alt="Purchase orders the cycle raised, grouped by supplier"><br><sub>Purchase orders the cycle raised, grouped by supplier.</sub></td></tr></table>
+
 ## Why tanpin kanri
 
 Tanpin kanri (単品管理, “single-item management”) treats every SKU as its own business. A store manager forms a hypothesis about tomorrow’s demand for that item — weather, a local event, day of week — orders against it, then verifies the result against actual sales. High-velocity items get tight control and frequent replenishment. The long tail gets simpler rules, and is the first to be delisted.
