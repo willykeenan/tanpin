@@ -249,7 +249,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). MIT license — [LICENSE](LICENSE).
 The image is published at `ghcr.io/willykeenan/tanpin` for Apple silicon and Intel.
 
 ```bash
-docker run -d --name tanpin -p 4173:4173 -e TANPIN_ADMIN_KEY=<long random string> -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin
+docker run -d --name tanpin -p 4173:4173 -e TANPIN_ADMIN_KEY="REPLACE_WITH_A_LONG_RANDOM_KEY" -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin
 claude mcp add tanpin -- docker exec -i tanpin node bin/tanpin mcp
 ```
 
