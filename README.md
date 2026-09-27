@@ -2,6 +2,8 @@
 
 **Item-by-item inventory that reorders itself.** Per-SKU demand forecasts, automatic purchase orders, supplier email and delivery ETAs — with a REST API, an MCP server, a daemon, and a dashboard. Pure Node 22, zero runtime dependencies (`node:*` built-ins only).
 
+Live demo: [huggingface.co/spaces/willykeenan/tanpin](https://huggingface.co/spaces/willykeenan/tanpin) (read-only, seeded sample data)
+
 ![Tanpin dashboard after an automatic cycle: stock value, open purchase orders and incoming deliveries with ETAs](docs/images/dashboard.png)
 
 <sub>Real screenshot of the demo; the data in it is invented sample data.</sub>
@@ -247,6 +249,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). MIT license — [LICENSE](LICENSE).
 The image is published at `ghcr.io/willykeenan/tanpin` for Apple silicon and Intel.
 
 ```bash
-docker run -p 4173:4173 -e TANPIN_ADMIN_KEY=<long random string> -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin
-claude mcp add tanpin -- docker run -i --rm -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin node bin/tanpin mcp
+docker run -d --name tanpin -p 4173:4173 -e TANPIN_ADMIN_KEY=<long random string> -v tanpin-data:/app/data ghcr.io/willykeenan/tanpin
+claude mcp add tanpin -- docker exec -i tanpin node bin/tanpin mcp
 ```
+
+`tanpin mcp` calls the running server over HTTP, so it runs inside that container with `docker exec`, where its requests are local and need no key. A separate `docker run ... tanpin mcp` container cannot reach the server at `localhost:4173`.
